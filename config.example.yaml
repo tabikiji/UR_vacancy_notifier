@@ -1,0 +1,23 @@
+# config.yaml のサンプル。コピーして config.yaml にし、自分の条件に書き換えて使います。
+search:
+  block: kanto
+  prefectures: ["13", "14", "12", "11"]
+  walk_max: 15
+  commute:
+    - name: 通勤先A駅
+      station_cd: "0000"   # UR サイトの駅コードに置き換え
+      max_min: 60
+    - name: 通勤先B駅
+      station_cd: "0000"
+      max_min: 40
+
+filters:
+  floor_min: 2
+  madori: null
+  rent_max: 150000
+  include_commonfee: true
+  floorspace_min: null
+
+notify:
+  notify_existing_on_first_run: true
+  notify_gone: false

@@ -1,0 +1,16 @@
+# watchlist.yaml のサンプル。実運用では discover.py で生成した候補を使います。
+danchi:
+- key: '20_0541'
+  name: 目白
+  place: 豊島区目白2-27-13
+  traffic: JR山手線「目白」駅 徒歩7分
+  station_walk_min: 7
+  url: https://www.ur-net.go.jp/chintai/kanto/tokyo/20_0541.html
+  vacancies_now: 0
+- key: '20_1300'
+  name: 竹の塚第一
+  place: 足立区竹の塚3-11ほか
+  traffic: 東武伊勢崎線「竹ノ塚」駅 徒歩11～16分
+  station_walk_min: 11
+  url: https://www.ur-net.go.jp/chintai/kanto/tokyo/20_1300.html
+  vacancies_now: 0
