@@ -73,6 +73,53 @@ def _to_floor(s: str | None) -> int | None:
     return int(m.group()) if m else None
 
 
+# ---------- 団地ページの概要（管理物件全体の家賃・間取り） ----------
+
+def _throttle() -> None:
+    wait = REQUEST_INTERVAL_SEC - (time.time() - _last_request)
+    if wait > 0:
+        time.sleep(wait)
+
+
+def fetch_danchi_summary(url: str) -> dict:
+    """団地ページ上部の「家賃(共益費)」「間取り/床面積」（管理物件全体の情報）を取得する。
+
+    空室の有無に関係なく取れる。取れなかった項目は None。
+    ※表示中の家賃には定期借家等の割引適用後の家賃を含む場合がある（下限は割引込みの可能性）。
+    """
+    global _last_request
+    _throttle()
+    r = _session.get(url, timeout=30)
+    _last_request = time.time()
+    r.raise_for_status()
+    if "charset" not in r.headers.get("Content-Type", "").lower():
+        r.encoding = r.apparent_encoding
+    text = html.unescape(re.sub(r"<[^>]+>", " ", r.text))
+    text = re.sub(r"\s+", " ", text)
+    return parse_danchi_summary(text)
+
+
+def parse_danchi_summary(text: str) -> dict:
+    """タグ除去・空白正規化済みのページ文字列から家賃・間取り・床面積を抜き出す。"""
+    out = {"rent_min": None, "rent_max": None, "commonfee": None,
+           "madori": None, "area_min": None, "area_max": None}
+    m = re.search(
+        r"家賃\s*[(（]\s*共益費\s*[)）]\s*([\d,]+)\s*円\s*(?:[～~〜]\s*([\d,]+)\s*円)?"
+        r"\s*[(（]\s*([\d,]+)\s*円\s*[)）]", text)
+    if m:
+        out["rent_min"] = int(m[1].replace(",", ""))
+        out["rent_max"] = int(m[2].replace(",", "")) if m[2] else out["rent_min"]
+        out["commonfee"] = int(m[3].replace(",", ""))
+    m = re.search(
+        r"間取り\s*/\s*床面積\s*(.+?)\s*/\s*([\d.]+)\s*(?:㎡|m2|m²)?"
+        r"\s*(?:[～~〜]\s*([\d.]+)\s*(?:㎡|m2|m²))?", text)
+    if m:
+        out["madori"] = m[1].strip()
+        out["area_min"] = float(m[2])
+        out["area_max"] = float(m[3]) if m[3] else out["area_min"]
+    return out
+
+
 # ---------- 通勤時間（駅→駅の所要時間） ----------
 
 def reachable_stations(station_cd: str, max_min: int) -> dict[str, tuple[int, str]]:

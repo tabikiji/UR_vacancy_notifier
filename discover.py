@@ -1,7 +1,9 @@
 """フェーズA: 通勤条件から候補団地を洗い出し、watchlist の下書き（candidates.yaml）を作る（初回・手動）.
 
 使い方:
-    python discover.py                 # → candidates.yaml
+    python discover.py                 # → candidates.yaml（家賃・間取りの列つき）
+    python discover.py --enrich watchlist.yaml
+                                       # 既存の watchlist.yaml に家賃・間取りの列だけを追記（検索はしない）
 出力を見て、監視したい団地だけ残し watchlist.yaml として保存する。
 """
 from __future__ import annotations
@@ -12,7 +14,7 @@ import unicodedata
 
 import yaml
 
-from ur_client import SITE_BASE, danchi_key, search_all
+from ur_client import SITE_BASE, danchi_key, fetch_danchi_summary, search_all
 
 
 def strip_html(s: str | None) -> str:
@@ -32,11 +34,59 @@ def station_walk_min(traffic: str) -> int | None:
     return min(mins) if mins else None
 
 
+def add_summary(c: dict) -> None:
+    """団地ページから家賃・間取りを取得して c に追記する（失敗しても止めない）。
+
+    家賃・間取りは「管理物件全体」の情報で、空室がなくても取れる。
+    rent_range / madori_range は目視用、rent_min / rent_max は並べ替え・除外用。
+    """
+    try:
+        s = fetch_danchi_summary(c["url"])
+    except Exception as e:  # 1団地の失敗で止めない
+        print(f"  詳細取得失敗 {c.get('name')}({c.get('key')}): {e}")
+        s = {}
+    c["rent_range"] = (f"{s['rent_min']:,}～{s['rent_max']:,}円（共益費 {s['commonfee']:,}円）"
+                       if s.get("rent_min") and s.get("commonfee") is not None else None)
+    c["madori_range"] = (f"{s['madori']} / {s['area_min']:g}～{s['area_max']:g}㎡"
+                         if s.get("madori") else None)
+    c["rent_min"] = s.get("rent_min")
+    c["rent_max"] = s.get("rent_max")
+
+
+def enrich_file(path: str) -> None:
+    """既存の yaml（watchlist.yaml など）に、家賃・間取りが未設定の団地だけ追記する。先頭のコメントは保持。"""
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    header_lines = []
+    for line in text.splitlines(keepends=True):
+        if line.startswith("#") or not line.strip():
+            header_lines.append(line)
+        else:
+            break
+    data = yaml.safe_load(text)["danchi"]
+    todo = [c for c in data if not c.get("rent_range")]
+    print(f"{path}: {len(data)} 団地中 {len(todo)} 団地の家賃・間取りを取得します")
+    for i, c in enumerate(todo, 1):
+        add_summary(c)
+        if i % 20 == 0:
+            print(f"  詳細取得 {i}/{len(todo)}")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("".join(header_lines))
+        yaml.safe_dump({"danchi": data}, f, allow_unicode=True, sort_keys=False, width=200)
+    print(f"{path} を更新しました")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("-c", "--config", default="config.yaml")
     ap.add_argument("-o", "--out", default="candidates.yaml")
+    ap.add_argument("--enrich", metavar="FILE",
+                    help="検索せず、既存の yaml（watchlist.yaml など）に家賃・間取りの列だけを追記する")
     args = ap.parse_args()
+
+    if args.enrich:
+        enrich_file(args.enrich)
+        return
 
     with open(args.config, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -61,12 +111,17 @@ def main() -> None:
         }
         for b in rows
     ]
+    for i, c in enumerate(candidates, 1):  # 団地ページから家賃・間取りを取得
+        add_summary(c)
+        if i % 20 == 0:
+            print(f"  詳細取得 {i}/{len(candidates)}")
     candidates.sort(key=lambda c: c["key"])
 
     header = (
         "# 候補団地リスト（discover.py が生成）\n"
         "# 監視したい団地だけ残して watchlist.yaml として保存してください。\n"
         "# 必須なのは key と name だけです（他は参考情報）。\n"
+        "# rent_range / madori_range は団地ページの「管理物件全体」の情報（空室がなくても出る。下限は割引込みの場合あり）。\n"
     )
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(header)

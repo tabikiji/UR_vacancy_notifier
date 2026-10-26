@@ -1,4 +1,5 @@
 # watchlist.yaml のサンプル。実運用では discover.py で生成した候補を使います。
+# rent_range / madori_range / rent_min / rent_max の値は見本です（discover.py が団地ページから取得します）。
 danchi:
 - key: '20_0541'
   name: 目白
@@ -7,6 +8,10 @@ danchi:
   station_walk_min: 7
   url: https://www.ur-net.go.jp/chintai/kanto/tokyo/20_0541.html
   vacancies_now: 0
+  rent_range: 62,300～98,500円（共益費 4,500円）
+  madori_range: 1K・1DK・2DK / 25～48㎡
+  rent_min: 62300
+  rent_max: 98500
 - key: '20_1300'
   name: 竹の塚第一
   place: 足立区竹の塚3-11ほか
@@ -14,3 +19,7 @@ danchi:
   station_walk_min: 11
   url: https://www.ur-net.go.jp/chintai/kanto/tokyo/20_1300.html
   vacancies_now: 0
+  rent_range: 55,000～81,200円（共益費 3,800円）
+  madori_range: 2DK・3DK / 42～57㎡
+  rent_min: 55000
+  rent_max: 81200
